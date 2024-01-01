@@ -1,59 +1,31 @@
-name: Build and Package
-
+name: Build and Archive IPA
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches:
+      - main  # Replace with your main branch name
+  # You can add more triggers as per your requirements, e.g., pull_request, schedule, etc.
 
 jobs:
   build:
-    name: Build KFD
-    runs-on: macos-latest
+    runs-on: macos-latest  # macOS runner is required for building iOS apps
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build and Archive
+        run: |
+          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
+          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
+          xcodebuild archive -"$filetype_parameter" "$file_to_build" -scheme kfd -archivePath $PWD/build/kfd.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO -sdk iphoneos
+
+      - name: Create IPA
+        run: |
+          xcodebuild -exportArchive -archivePath $PWD/build/kfd.xcarchive -exportPath $PWD/build -exportOptionsPlist ExportOptions.plist -allowProvisioningUpdates CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v2
         with:
-          submodules: true
-
-      - name: Install Theos
-        run: bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
-
-      - name: Setup Environment
-        run: echo "THEOS=~/theos" >> $GITHUB_ENV
-
-      - name: Make KFD Package
-        run: make package
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: kfd.tipa
-          path: ./packages/kfd.tipa
-  update-release:
-    name: Release .tipa
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-    - name: Delete old release
-      uses: dev-drprasad/delete-tag-and-release@v0.2.1
-      with:
-        delete_release: true
-        tag_name: release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Get artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: kfd.tipa
-    - name: Create new release
-      uses: ncipollo/release-action@v1
-      with:
-        name: Rolling Release
-        body: These are automatically updated builds of the latest commit.
-        artifacts: "kfd.tipa"
-        tag: release
-        token: ${{ secrets.GITHUB_TOKEN }}
+          name: kfd-IPA
+          path: $PWD/build/kfd.ipa
