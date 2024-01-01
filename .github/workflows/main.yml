@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build Bootstrap
+    name: Build KFD
     runs-on: macos-latest
 
     steps:
@@ -19,18 +19,18 @@ jobs:
           submodules: true
 
       - name: Install Theos
-        run: bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
+        run: bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
 
       - name: Setup Environment
         run: echo "THEOS=~/theos" >> $GITHUB_ENV
 
-      - name: Make Bootstrap Package
+      - name: Make KFD Package
         run: make package
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: Bootstrap.tipa
+          name: kfd.tipa
           path: ./packages/kfd.tipa
   update-release:
     name: Release .tipa
@@ -48,7 +48,7 @@ jobs:
     - name: Get artifacts
       uses: actions/download-artifact@v3
       with:
-        name: Bootstrap.tipa
+        name: kfd.tipa
     - name: Create new release
       uses: ncipollo/release-action@v1
       with:
